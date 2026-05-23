@@ -19,7 +19,7 @@ export class Game {
         this.lastTime = 0;
         
         this.score = 0;
-        this.distanceRemaining = 10000;
+        this.distanceTraveled = 0;
         this.timeMs = 0;
         
         this.destination = '';
@@ -35,10 +35,7 @@ export class Game {
         this.isPlaying = true;
         this.score = 0;
         
-        if (dest === 'home') this.distanceRemaining = 5000;
-        else if (dest === 'pg') this.distanceRemaining = 8000;
-        else if (dest === 'gym') this.distanceRemaining = 12000;
-        else this.distanceRemaining = 15000;
+        this.traffic.setRoadType(dest);
 
         this.timeMs = 0;
         this.player.x = 300 - 15;
@@ -141,19 +138,15 @@ export class Game {
         if (!this.isPlaying) return; // if game over triggered
         
         if (this.player.speed > 0) {
-            this.distanceRemaining -= this.player.speed * (dt / 16);
+            this.distanceTraveled += this.player.speed * (dt / 16);
             this.score += this.player.speed * 0.1;
         }
         
         this.timeMs += dt;
 
         document.getElementById('score').innerText = Math.floor(Math.max(0, this.score));
-        document.getElementById('dist').innerText = Math.floor(Math.max(0, this.distanceRemaining)) + 'm';
+        document.getElementById('dist').innerText = Math.floor(Math.max(0, this.distanceTraveled)) + 'm';
         document.getElementById('time').innerText = Math.floor(this.timeMs / 1000) + 's';
-
-        if (this.distanceRemaining <= 0) {
-            this.levelComplete();
-        }
     }
 
     draw() {

@@ -11,8 +11,13 @@ export class TrafficManager {
             { x: 150, dir: 1 },  // Left lane, slower
             { x: 250, dir: 1 },  // MIddle lane
             { x: 350, dir: 1 },  // Middle lane
-            { x: 450, dir: 1 }   // Right lane, fast
         ];
+        
+        this.roadType = '';
+    }
+
+    setRoadType(type) {
+        this.roadType = type;
     }
 
     spawnVehicle() {
@@ -48,7 +53,11 @@ export class TrafficManager {
             y: -100,
             width, height, speed, color, type, behavior,
             targetLaneX: lane.x - width/2,
-            weaveTimer: 0
+            weaveTimer: 0,
+            baseSpeed: speed,
+            isChaos: (this.roadType === 'delhi' || this.roadType === 'delhi_chaos') && Math.random() < 0.25,
+            chaosTimer: 0,
+            brakeTimer: 0
         });
     }
 
@@ -69,7 +78,28 @@ export class TrafficManager {
             v.y += (playerSpeed - v.speed) * (dt/16);
 
             // Behaviors
-            if (v.behavior === 'erratic') {
+            if (v.isChaos) {
+                v.chaosTimer += dt;
+                if (v.chaosTimer > 1500 + Math.random() * 2000) {
+                    v.chaosTimer = 0;
+                    if (Math.random() > 0.5) {
+                        // RANDOM LANE SWITCH
+                        v.targetLaneX = this.lanes[Math.floor(Math.random() * this.lanes.length)].x - v.width/2;
+                    } else {
+                        // SUDDEN BRAKING
+                        v.brakeTimer = 1000;
+                        v.speed = v.baseSpeed * 0.3;
+                    }
+                }
+                
+                if (v.brakeTimer > 0) {
+                    v.brakeTimer -= dt;
+                    if (v.brakeTimer <= 0) {
+                        v.speed = v.baseSpeed;
+                        v.brakeTimer = 0;
+                    }
+                }
+            } else if (v.behavior === 'erratic') {
                 v.weaveTimer += dt;
                 if (v.weaveTimer > 2000) {
                     v.weaveTimer = 0;
