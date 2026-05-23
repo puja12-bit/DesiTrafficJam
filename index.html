@@ -544,12 +544,19 @@
             coconut: createCoconutTreeSprite(30, 30)
         };
 
-        let UNLOCKED_VEHICLES = localStorage.getItem('v8_vehicles') ? JSON.parse(localStorage.getItem('v8_vehicles')) : ['hjonda', 'bullett', 'ninja'];
+        const ls = {
+            get: (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } },
+            set: (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} }
+        };
+
+        let GLOBAL_SCORE = ls.get('v8_score') ? parseInt(ls.get('v8_score')) : 0;
+        let MAP_UNLOCKS = ls.get('v8_maps') ? parseInt(ls.get('v8_maps')) : 0;
+        let UNLOCKED_VEHICLES = ls.get('v8_vehicles') ? JSON.parse(ls.get('v8_vehicles')) : ['hjonda', 'bullett', 'ninja'];
         if(!UNLOCKED_VEHICLES.includes('ninja')) {
-            UNLOCKED_VEHICLES.push('ninja'); localStorage.setItem('v8_vehicles', JSON.stringify(UNLOCKED_VEHICLES));
+            UNLOCKED_VEHICLES.push('ninja'); ls.set('v8_vehicles', JSON.stringify(UNLOCKED_VEHICLES));
         }
         if(!UNLOCKED_VEHICLES.includes('bullett')) {
-            UNLOCKED_VEHICLES.push('bullett'); localStorage.setItem('v8_vehicles', JSON.stringify(UNLOCKED_VEHICLES));
+            UNLOCKED_VEHICLES.push('bullett'); ls.set('v8_vehicles', JSON.stringify(UNLOCKED_VEHICLES));
         }
         let HAS_UNLOCKED_THIS_SESSION = false;
 
@@ -570,9 +577,9 @@
         ];
 
         function saveProgress() {
-            localStorage.setItem('v8_score', GLOBAL_SCORE);
-            localStorage.setItem('v8_maps', MAP_UNLOCKS);
-            localStorage.setItem('v8_vehicles', JSON.stringify(UNLOCKED_VEHICLES));
+            ls.set('v8_score', GLOBAL_SCORE);
+            ls.set('v8_maps', MAP_UNLOCKS);
+            ls.set('v8_vehicles', JSON.stringify(UNLOCKED_VEHICLES));
         }
 
         class GameEngine {
