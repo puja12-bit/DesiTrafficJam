@@ -72,6 +72,16 @@
         }
         button:hover:not(:disabled) { background-color: var(--text-primary); color: #000; box-shadow: 0 0 25px var(--text-primary); }
         button:disabled { border-color: #444; color: #444; cursor: not-allowed; box-shadow: none; }
+        button.selected-bike {
+            border-color: #00ff66 !important;
+            color: #00ff66 !important;
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.6) !important;
+        }
+        button.selected-bike:hover:not(:disabled) {
+            background-color: #00ff66 !important;
+            color: #000 !important;
+            box-shadow: 0 0 25px #00ff66 !important;
+        }
         
         #hud-screen { background: transparent; pointer-events: none; justify-content: space-between; overflow: hidden; padding: 0;}
         .hud-top {
@@ -321,34 +331,34 @@
 
         let GLOBAL_SCORE = ls.get('v8_score') ? parseInt(ls.get('v8_score')) : 0;
         let MAP_UNLOCKS = ls.get('v8_maps') ? parseInt(ls.get('v8_maps')) : 0;
-        let UNLOCKED_VEHICLES = ls.get('v8_vehicles') ? JSON.parse(ls.get('v8_vehicles')) : ['hjonda', 'bullett', 'ninja'];
-        if(!UNLOCKED_VEHICLES.includes('ninja')) {
-            UNLOCKED_VEHICLES.push('ninja'); ls.set('v8_vehicles', JSON.stringify(UNLOCKED_VEHICLES));
-        }
-        if(!UNLOCKED_VEHICLES.includes('bullett')) {
-            UNLOCKED_VEHICLES.push('bullett'); ls.set('v8_vehicles', JSON.stringify(UNLOCKED_VEHICLES));
-        }
+        let UNLOCKED_VEHICLES = ls.get('v8_vehicles') ? JSON.parse(ls.get('v8_vehicles')) : ['hjonda'];
 
         const VEHICLES = [
             { id: 'hjonda', tier: 'BIKE', name: 'HEROIC SPLENDID', cost: 0, s: 10, a: 0.05, sp: SPRITES.bike, w:10, h:16, eSound: null, fuelRate: 0.5 },
             { id: 'bullett', tier: 'BIKE', name: 'BALLISTIC RANGER', cost: 500, s: 14, a: 0.08, sp: SPRITES.bike, w:10, h:18, eSound: 'thump', fuelRate: 1.5 },
             { id: 'ninja', tier: 'BIKE', name: 'SHINOBI ZX', cost: 3000, s: 28, a: 0.40, sp: SPRITES.bike, w:10, h:16, eSound: null, fuelRate: 4.5 },
-            { id: 'bmw1000rr', tier: 'SUPERBIKE', name: 'BVM X1000R', cost: 0, s: 30, a: 0.28, sp: SPRITES.bwm, w:10, h:16, eSound: null, fuelRate: 4.0 }
+            { id: 'bmw1000rr', tier: 'SUPERBIKE', name: 'BVM X1000R', cost: 8000, s: 30, a: 0.28, sp: SPRITES.bwm, w:10, h:16, eSound: null, fuelRate: 4.0 }
         ];
+
+        let currV = ls.get('v8_selected_vehicle') ? parseInt(ls.get('v8_selected_vehicle')) : 0;
+        if (currV >= VEHICLES.length || !UNLOCKED_VEHICLES.includes(VEHICLES[currV].id)) {
+            currV = 0;
+        }
 
         const MAPS = [
             { id: 'hyderabad', name: '🕌 HYDERABAD BLOCKS', unlockCost: 0, levelReq: 0 },
-            { id: 'offroad', name: '🌲 MP OFF-ROAD', unlockCost: 0, levelReq: 0 },
-            { id: 'delhi', name: '🛺 DELHI CHAOS', unlockCost: 0, levelReq: 0 },
-            { id: 'mumbai', name: '🌊 MUMBAI RUSH', unlockCost: 0, levelReq: 0 },
-            { id: 'tamilnadu', name: '🛕 TAMIL NADU FLOW', unlockCost: 0, levelReq: 0 },
-            { id: 'hills', name: '⛰️ EK GALTI HILLS', unlockCost: 0, levelReq: 0 }
+            { id: 'offroad', name: '🌲 MP OFF-ROAD', unlockCost: 1000, levelReq: 1 },
+            { id: 'delhi', name: '🛺 DELHI CHAOS', unlockCost: 2500, levelReq: 2 },
+            { id: 'mumbai', name: '🌊 MUMBAI RUSH', unlockCost: 4500, levelReq: 3 },
+            { id: 'tamilnadu', name: '🛕 TAMIL NADU FLOW', unlockCost: 7000, levelReq: 4 },
+            { id: 'hills', name: '⛰️ EK GALTI HILLS', unlockCost: 10000, levelReq: 5 }
         ];
 
         function saveProgress() {
             ls.set('v8_score', GLOBAL_SCORE);
             ls.set('v8_maps', MAP_UNLOCKS);
             ls.set('v8_vehicles', JSON.stringify(UNLOCKED_VEHICLES));
+            ls.set('v8_selected_vehicle', currV);
         }
 
         class GameEngine {
@@ -717,7 +727,6 @@
             }
         }
 
-        let currV = 0;
         document.addEventListener('DOMContentLoaded', () => {
             const g = new GameEngine();
             const gui = { garage: document.getElementById('garage-screen'), ov: document.getElementById('game-over-screen') };
@@ -728,12 +737,36 @@
                 VEHICLES.forEach((v,i) => {
                     const b = document.createElement('button');
                     let u = UNLOCKED_VEHICLES.includes(v.id) || v.cost === 0;
-                    b.innerText = u ? `SELECT ${v.name}` : `BUY ${v.name}\n${v.cost}PTS`;
-                    if(!u && GLOBAL_SCORE >= v.cost) {
-                        b.onclick = () => { GLOBAL_SCORE-=v.cost; UNLOCKED_VEHICLES.push(v.id); saveProgress(); rUI(); };
-                        b.style.borderColor='#ffaa00'; b.style.color='#ffaa00';
-                    } else if (!u) { b.disabled = true; }
-                    else { b.onclick = () => { currV = i; sel(i); }; }
+                    
+                    if (u) {
+                        if (currV === i) {
+                            b.innerText = `★ SELECTED ★\n${v.name}`;
+                            b.classList.add('selected-bike');
+                            b.style.borderColor = '#00ff66';
+                            b.style.color = '#00ff66';
+                            b.style.boxShadow = '0 0 15px rgba(0,255,102,0.6)';
+                        } else {
+                            b.innerText = `SELECT ${v.name}`;
+                            b.style.borderColor = '';
+                            b.style.color = '';
+                            b.style.boxShadow = '';
+                        }
+                        b.onclick = () => { currV = i; saveProgress(); rUI(); };
+                    } else {
+                        b.innerText = `BUY ${v.name}\n${v.cost}PTS`;
+                        if (GLOBAL_SCORE >= v.cost) {
+                            b.onclick = () => { 
+                                GLOBAL_SCORE -= v.cost; 
+                                UNLOCKED_VEHICLES.push(v.id); 
+                                saveProgress(); 
+                                rUI(); 
+                            };
+                            b.style.borderColor = '#ffaa00';
+                            b.style.color = '#ffaa00';
+                        } else {
+                            b.disabled = true;
+                        }
+                    }
                     vl.appendChild(b);
                 });
                 
@@ -741,12 +774,29 @@
                 MAPS.forEach((m,i) => {
                     const mb = document.createElement('button');
                     let mu = MAP_UNLOCKS >= m.levelReq;
-                    mb.innerText = mu ? `PLAY ${m.name}` : `UNLOCK ${m.name}\n${m.unlockCost}PTS`;
-                    if(!mu && GLOBAL_SCORE >= m.unlockCost) {
-                        mb.onclick = () => { GLOBAL_SCORE-=m.unlockCost; MAP_UNLOCKS=m.levelReq; saveProgress(); rUI(); };
-                        mb.style.borderColor='#ffaa00'; mb.style.color='#ffaa00';
-                    } else if (!mu) { mb.disabled = true; }
-                    else { mb.onclick = () => { document.getElementById('hud-screen').classList.remove('hidden'); gui.garage.classList.add('hidden'); g.startGame(currV, m.id); }; }
+                    let isNextToUnlock = (m.levelReq === MAP_UNLOCKS + 1);
+                    
+                    if (mu) {
+                        mb.innerText = `PLAY ${m.name}`;
+                        mb.onclick = () => { document.getElementById('hud-screen').classList.remove('hidden'); gui.garage.classList.add('hidden'); g.startGame(currV, m.id); };
+                    } else if (isNextToUnlock) {
+                        mb.innerText = `UNLOCK ${m.name}\n${m.unlockCost}PTS`;
+                        if (GLOBAL_SCORE >= m.unlockCost) {
+                            mb.onclick = () => { 
+                                GLOBAL_SCORE -= m.unlockCost; 
+                                MAP_UNLOCKS = m.levelReq; 
+                                saveProgress(); 
+                                rUI(); 
+                            };
+                            mb.style.borderColor = '#ffaa00';
+                            mb.style.color = '#ffaa00';
+                        } else {
+                            mb.disabled = true;
+                        }
+                    } else {
+                        mb.innerText = `LOCKED (REQ PREV MAP)`;
+                        mb.disabled = true;
+                    }
                     ml.appendChild(mb);
                 });
                 let nextCost = Infinity; let nextItem = '';
