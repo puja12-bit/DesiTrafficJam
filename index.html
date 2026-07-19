@@ -554,14 +554,11 @@
             coconut: createCoconutTreeSprite(30, 30)
         };
 
-        const ls = {
-            get: (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } },
-            set: (k, v) => { try { ls.set(k, v); } catch(e) {} }
-        };
+        const ls = { get: (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} } };
 
-        let GLOBAL_SCORE = ls.get('v8_score') ? parseInt(ls.get('v8_score')) : 0;
-        let MAP_UNLOCKS = ls.get('v8_maps') ? parseInt(ls.get('v8_maps')) : 0;
-        let UNLOCKED_VEHICLES = ls.get('v8_vehicles') ? JSON.parse(ls.get('v8_vehicles')) : ['hjonda'];
+        let GLOBAL_SCORE = 999999;
+        let MAP_UNLOCKS = 99;
+        let UNLOCKED_VEHICLES = ['hjonda', 'bullett', 'ninja', 'bmw1000rr', 'hindo', 'bwm'];
         let HAS_UNLOCKED_THIS_SESSION = false;
 
         const VEHICLES = [

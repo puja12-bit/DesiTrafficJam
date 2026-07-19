@@ -324,14 +324,11 @@
         };
 
         
-        const ls = {
-            get: (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } },
-            set: (k, v) => { try { ls.set(k, v); } catch(e) {} }
-        };
+        const ls = { get: (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} } };
 
-        let GLOBAL_SCORE = ls.get('v8_score') ? parseInt(ls.get('v8_score')) : 0;
-        let MAP_UNLOCKS = ls.get('v8_maps') ? parseInt(ls.get('v8_maps')) : 0;
-        let UNLOCKED_VEHICLES = ls.get('v8_vehicles') ? JSON.parse(ls.get('v8_vehicles')) : ['hjonda'];
+        let GLOBAL_SCORE = 999999;
+        let MAP_UNLOCKS = 99;
+        let UNLOCKED_VEHICLES = ['hjonda', 'bullett', 'ninja', 'bmw1000rr', 'hindo', 'bwm'];
 
         const VEHICLES = [
             { id: 'hjonda', tier: 'BIKE', name: 'HEROIC SPLENDID', cost: 0, s: 10, a: 0.05, sp: SPRITES.bike, w:10, h:16, eSound: null, fuelRate: 0.5 },
