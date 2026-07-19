@@ -372,28 +372,43 @@
                 window.addEventListener('keyup', e => { this.keys[e.key] = false; });
 
                 this.lastTap = { l: 0, r: 0 };
+                this.activeTouches = { left: false, right: false };
+
+                const updateTouchState = (e) => {
+                    this.activeTouches = { left: false, right: false };
+                    for (let i = 0; i < e.touches.length; i++) {
+                        if (e.touches[i].clientX < window.innerWidth / 2) this.activeTouches.left = true;
+                        else this.activeTouches.right = true;
+                    }
+                    this.keys.ArrowUp = this.activeTouches.left || this.activeTouches.right;
+                    this.keys.ArrowDown = !(this.activeTouches.left || this.activeTouches.right);
+                    this.keys.ArrowLeft = this.activeTouches.left && !this.activeTouches.right;
+                    this.keys.ArrowRight = this.activeTouches.right && !this.activeTouches.left;
+                };
+
                 window.addEventListener('touchstart', e => {
                     if (!this.isPlaying) return;
-                    for (let i = 0; i < e.touches.length; i++) {
-                        const touch = e.touches[i];
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        const touch = e.changedTouches[i];
                         const now = performance.now();
                         if (touch.clientX < window.innerWidth / 2) {
                             if (now - this.lastTap.l < 300) {
                                 this.ind.l = !this.ind.l; this.ind.r = false; this.updateUIIndicators();
                                 this.lastTap.l = 0;
-                            } else {
-                                this.lastTap.l = now;
-                            }
+                            } else { this.lastTap.l = now; }
                         } else {
                             if (now - this.lastTap.r < 300) {
                                 this.ind.r = !this.ind.r; this.ind.l = false; this.updateUIIndicators();
                                 this.lastTap.r = 0;
-                            } else {
-                                this.lastTap.r = now;
-                            }
+                            } else { this.lastTap.r = now; }
                         }
                     }
+                    updateTouchState(e);
                 }, { passive: true });
+
+                window.addEventListener('touchmove', e => { if (this.isPlaying) updateTouchState(e); }, { passive: true });
+                window.addEventListener('touchend', e => { if (this.isPlaying) updateTouchState(e); }, { passive: true });
+                window.addEventListener('touchcancel', e => { if (this.isPlaying) updateTouchState(e); }, { passive: true });
 
                 this.isPlaying = false; this.boundLoop = this.loop.bind(this);
             }
