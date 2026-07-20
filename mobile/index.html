@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Indian Traffic Arcade Game - V8</title>
+    <title>Indian Traffic Arcade Game - V8 (Updated)</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -615,7 +615,7 @@
 
             startGame(vIdx, mapId) {
                 this.vConf = VEHICLES[vIdx]; this.mapId = mapId;
-                this.isPlaying = true; this.score = 0; this.fuel = 100;
+                this.isPlaying = true; this.score = 0; this.fuel = 100; this.stats = {noSignalTurn:0, suddenBrake:0, unnecessaryStop:0, nearMiss:0};
                 this.p = { x: 300, y: 650, speed: 0, angle: 0, logY: 0, w: this.vConf.w, h: this.vConf.h };
                 this.p.lane = this.resolveLane(this.p.x);
                 this.em = []; this.spawnTimer = 0;
@@ -639,6 +639,24 @@
             stop(reason) {
                 this.isPlaying = false;
                 GLOBAL_SCORE += Math.floor(this.score); saveProgress();
+                
+                let mistakes = [];
+                if (this.stats.noSignalTurn > 0) mistakes.push(`<span style="color:#ff3333">Indicator avoid kiya</span> (${this.stats.noSignalTurn}x)`);
+                if (this.stats.suddenBrake > 0) mistakes.push(`<span style="color:#ff5500">Brake late tha</span> 😬`);
+                if (this.stats.unnecessaryStop > 0) mistakes.push(`<span style="color:#ff5500">Zyada wait kiya</span> 🐢`);
+
+                let perf = [];
+                if (this.stats.nearMiss > 0) perf.push(`Close call! 🔥 <span style="color:#ffaa00">Near misses: ${this.stats.nearMiss}</span>`);
+                else perf.push(`<span style="color:#00ff66">Good control</span> 👍`);
+
+                let feeds = [];
+                if (mistakes.length > 0) feeds.push(mistakes[Math.floor(Math.random() * mistakes.length)]);
+                else feeds.push(`<span style="color:#00ff66">Rule follow kiya</span> 🛡️`);
+                feeds.push(perf[0]);
+                
+                let feedsHtml = feeds.map(f => `<p style="color:#cccccc; font-size:0.8rem; line-height:1.8; margin-bottom:15px; font-family:inherit; text-align:left;">• ${f}</p>`).join('');
+                document.getElementById('smart-feedback-container').innerHTML = feedsHtml;
+
                 document.getElementById('hud-screen').classList.add('hidden');
                 
                 const lostPts = (this.stats.indicatorMisses * 5) + (this.stats.laneViolations * 20) + (this.stats.signalViolations * 50);
