@@ -149,6 +149,7 @@
                 <hr style="width: 80%; border-color:#333; margin: 1rem 0;">
 
                 <h2>PTS: <span id="global-score-ui">0</span></h2>
+                <div style="text-align:center; width:100%; margin-bottom:1rem;"><span id="next-unlock-info" style="color:#ff0055; font-size:0.7rem; text-shadow:0 0 5px #ff0055;"></span></div>
                 <p class="center-p">UNLOCK VEHICLE <span style="color:#fff">OR</span> MAP</p>
                 
                 <div class="garage-preview" id="garage-preview-container">
@@ -159,8 +160,6 @@
                 <p id="vehicle-stats" style="font-size:0.6rem; color:#aaa; text-align:center;"></p>
                 
                 <div class="btn-group" id="vehicle-list"></div>
-                
-                <div id="garage-progression-feedback" style="text-align:center; font-size:0.7rem; color:#aaa; margin:1rem 0; border:1px solid #333; padding: 1rem;"></div>
                 
                 <hr style="width: 80%; border-color:#333; margin: 1rem 0;">
                 
@@ -197,24 +196,24 @@
             </div>
 
             <div id="game-over-screen" class="screen hidden" style="justify-content:center;">
-                <h1 class="red" style="font-size: 2rem;">WASTED!</h1>
-                <p id="game-over-reason" style="color:#ff0055; margin: 1rem 0; font-size: 1rem; line-height:1.5; text-shadow:0 0 10px #ff0055; text-align:center;"></p>
-                <div id="game-over-stats" style="text-align:left; font-size:0.7rem; margin-bottom:1rem; color:#aaa; max-width: 400px; padding: 1rem; border: 1px solid #333; background: #111; line-height: 1.8;"></div>
-                <p class="center-p">PTS EARNED: <span id="final-score" style="color:#00ffff"></span></p>
-                <div class="btn-group" style="margin-top: 2rem;">
-                    <button id="btn-restart-retry">TRY AGAIN</button>
-                    <button id="btn-restart-menu">PLAY BETTER ROUTE</button>
+                <h1 id="game-over-title" class="red" style="font-size: 1.6rem; line-height:1.4; text-shadow: 0 0 10px #ff0055; margin-bottom:0.5rem; text-align:center;">WASTED!</h1>
+                <p id="game-over-reason" style="color:#ff0055; margin: 1rem 0; font-size: 0.8rem; line-height:1.5; text-shadow:0 0 10px #ff0055; text-align:center;"></p>
+                
+                <div style="background:rgba(0,0,0,0.8); border:2px solid #555; padding:1.5rem; width:90%; max-width:400px; margin-bottom:1.5rem;">
+                    <p style="color:#00ffff; font-size:1rem; text-align:left; margin-bottom:15px; font-weight:bold;">SCORE: <span id="final-score">0</span></p>
+                    <div id="smart-feedback-container" style="text-align:left; margin-top:15px;"></div>
+                </div>
+
+                <div class="btn-group">
+                    <button id="btn-restart-menu" style="min-width: 140px;">ROUTES</button>
+                    <button id="btn-restart-retry" style="min-width: 140px; color: #ff0055; border-color: #ff0055; box-shadow: 0 0 15px rgba(255,0,85,0.4);">TRY AGAIN</button>
                 </div>
             </div>
             
             <div id="level-complete-screen" class="screen hidden" style="justify-content:center;">
                 <h1 class="green" style="font-size: 1.5rem;">ARRIVED</h1>
-                <div id="win-stats" style="text-align:left; font-size:0.7rem; margin:1rem 0; color:#aaa; max-width: 400px; padding: 1rem; border: 1px solid #333; background: #111; line-height: 1.8;"></div>
                 <p class="center-p">PTS EARNED: <span id="win-score" style="color:#00ffff"></span></p>
-                <div class="btn-group" style="margin-top: 2rem;">
-                    <button id="btn-next-retry">PLAY AGAIN</button>
-                    <button id="btn-next-menu">ROUTES / UPGRADES</button>
-                </div>
+                <button id="btn-next" style="margin-top: 1rem;">RETURN</button>
             </div>
         </div>
     </div>
@@ -226,55 +225,178 @@
             return c;
         }
 
+        let GLOBAL_THUMP_ARR = null;
+        fetch('assets/royal-enfield.wav').then(r=>r.arrayBuffer()).then(b=>{GLOBAL_THUMP_ARR=b;}).catch(e=>{});
+
+        const AudioSys = {
+            ctx: null,
+            ambNode: null,
+            customThumpBuf: null,
+            init() {
+                if (!this.ctx) { 
+                    try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} 
+                }
+                if (this.ctx && GLOBAL_THUMP_ARR && !this.customThumpBuf) {
+                    let bufToDecode = GLOBAL_THUMP_ARR; GLOBAL_THUMP_ARR = null;
+                    this.ctx.decodeAudioData(bufToDecode, a => { this.customThumpBuf = a; if(this.engineType === 'thump') this.playEngine('thump', true); }, e => {});
+                }
+                if (this.ctx && this.ctx.state === 'suspended') { try { this.ctx.resume(); } catch(e){} }
+            },
+            stopAmbulance() {
+                if(this.ambNode) { try { this.ambNode.stop(); } catch(e){} this.ambNode = null; }
+            },
+            playCrash(type) {
+                this.init(); this.stopAmbulance();
+                if(!this.ctx) return;
+                let t = this.ctx.currentTime;
+                if (type === 'vehicle') {
+                    let bufferSize = Math.floor(this.ctx.sampleRate * 0.4);
+                    let buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    let data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                    let noise = this.ctx.createBufferSource(); noise.buffer = buffer;
+                    let vF = this.ctx.createBiquadFilter(); vF.type = 'lowpass'; vF.frequency.value = 1000;
+                    let gn = this.ctx.createGain(); gn.gain.setValueAtTime(0.5, t); gn.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+                    noise.connect(vF); vF.connect(gn); gn.connect(this.ctx.destination);
+                    noise.start(t);
+                } else if (type === 'animal') {
+                    let o = this.ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(100, t); o.frequency.exponentialRampToValueAtTime(30, t + 0.2);
+                    let g = this.ctx.createGain(); g.gain.setValueAtTime(0.6, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+                    o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.2);
+                    let o2 = this.ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.setValueAtTime(150, t+0.05); o2.frequency.linearRampToValueAtTime(100, t+0.3);
+                    let g2 = this.ctx.createGain(); g2.gain.setValueAtTime(0, t); g2.gain.setValueAtTime(0.3, t+0.05); g2.gain.exponentialRampToValueAtTime(0.01, t+0.3);
+                    o2.connect(g2); g2.connect(this.ctx.destination); o2.start(t+0.05); o2.stop(t+0.3);
+                } else if (type === 'pedestrian') {
+                    let o = this.ctx.createOscillator(); o.type = 'sawtooth'; let vF = this.ctx.createBiquadFilter(); vF.type = 'lowpass'; vF.frequency.value = 800;
+                    o.frequency.setValueAtTime(300, t); o.frequency.linearRampToValueAtTime(200, t + 0.15);
+                    let g = this.ctx.createGain(); g.gain.setValueAtTime(0.3, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+                    o.connect(vF); vF.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.15);
+                }
+                setTimeout(() => this.playAmbulance(), 300);
+            },
+            playAmbulance() {
+                if(!this.ctx) return;
+                let t = this.ctx.currentTime; let o = this.ctx.createOscillator(); o.type = 'square';
+                let g = this.ctx.createGain(); g.gain.setValueAtTime(0.05, t); g.gain.linearRampToValueAtTime(0.0, t + 3);
+                for(let i=0; i<6; i++) { o.frequency.setValueAtTime(800, t + i*0.5); o.frequency.setValueAtTime(960, t + (i*0.5)+0.25); }
+                let vF = this.ctx.createBiquadFilter(); vF.type='lowpass'; vF.frequency.value = 1500;
+                o.connect(vF); vF.connect(g); g.connect(this.ctx.destination);
+                o.start(t); o.stop(t+3); this.ambNode = o;
+            },
+            engineNode: null,
+            engineGain: null,
+            engineLFO: null,
+            engineType: null,
+            playEngine(type, force=false) {
+                this.init();
+                if (!this.ctx || this.ctx.state !== 'running') return;
+                if (!force && this.engineType === type && this.engineNode) return; 
+                this.stopEngine();
+                this.engineType = type;
+                let t = this.ctx.currentTime;
+                this.engineGain = this.ctx.createGain();
+                this.engineGain.gain.value = 0.6; // slightly boosted for real audio
+                this.engineGain.connect(this.ctx.destination);
+                
+                if (type === 'thump' && this.customThumpBuf) {
+                    this.engineNode = this.ctx.createBufferSource();
+                    this.engineNode.buffer = this.customThumpBuf;
+                    this.engineNode.loop = true;
+                    // Filter out wind noise (highpass) and hiss (lowpass)
+                    let lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
+                    let hp = this.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 80;
+                    this.engineNode.connect(hp); hp.connect(lp); lp.connect(this.engineGain);
+                } else {
+                    this.engineNode = this.ctx.createOscillator();
+                    if (type === 'thump') {
+                        this.engineNode.type = 'sawtooth'; this.engineNode.frequency.value = 75;
+                        this.engineLFO = this.ctx.createOscillator(); this.engineLFO.type = 'square'; this.engineLFO.frequency.value = 10;
+                        let lfoGain = this.ctx.createGain(); lfoGain.gain.value = 35;
+                        this.engineLFO.connect(lfoGain); lfoGain.connect(this.engineNode.frequency);
+                        this.engineLFO.start(t);
+                        let filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1000;
+                        this.engineNode.connect(filter); filter.connect(this.engineGain);
+                    } else if (type === 'fast') {
+                        this.engineNode.type = 'sawtooth'; this.engineNode.frequency.value = 240;
+                        let filter = this.ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1500;
+                        this.engineNode.connect(filter); filter.connect(this.engineGain);
+                    } else if (type === 'smooth') {
+                        this.engineNode.type = 'square'; this.engineNode.frequency.value = 120;
+                        let filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 600;
+                        this.engineNode.connect(filter); filter.connect(this.engineGain);
+                    } else {
+                        this.engineNode.type = 'sawtooth'; this.engineNode.frequency.value = 120;
+                        let filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 900;
+                        this.engineNode.connect(filter); filter.connect(this.engineGain);
+                    }
+                }
+                this.engineNode.start(t);
+            },
+            stopEngine() {
+                if (this.engineNode) { try { this.engineNode.stop(); } catch(e){} this.engineNode = null; }
+                if (this.engineLFO) { try { this.engineLFO.stop(); } catch(e){} this.engineLFO = null; }
+                this.engineType = null;
+            }
+        };
+
         const PALS = {
             human: {1:'#fff', 2:'#ff0055', 3:'#00ffff', 4:'#222'},
             hazard: {1:'#ffaa00', 2:'#fff', 3:'#111'},
-            cow: {1:'#fff', 2:'#111'},
-            buffalo: {1:'#333', 2:'#000'},
+            cow: {1:'#ffffff', 2:'#000000', 3:'#ddaa99', 4:'#553311'},
+            buffalo: {1:'#333333', 2:'#111111', 3:'#888888', 4:'#555555', 5:'#666666'},
             bike: {1:'#111', 2:'#ff0055', 3:'#fff', 4:'#444'},
             auto: {1:'#111', 2:'#ffaa00', 3:'#222', 4:'#fff'},
             shop: {1:'#ff0055', 2:'#222', 3:'#111', 4:'#00ffff', 5:'#fff'},
             tree: {1:'#005511', 2:'#008822', 3:'#00ff44', 4:'#553311'},
-            house: {1:'#555', 2:'#222', 3:'#ffaa00', 4:'#111'}
+            house: {1:'#555', 2:'#222', 3:'#ffaa00', 4:'#111'},
+            dog: {1:'#c87d55', 2:'#854425', 3:'#ffd2d2', 4:'#111111'}
         };
 
         const dBike = [0,0,0,0,1,1,0,0,0,0, 0,0,0,1,1,1,1,0,0,0, 0,0,1,1,1,1,1,1,0,0, 0,0,1,2,3,3,2,1,0,0, 0,0,0,2,2,2,2,0,0,0, 0,0,0,2,2,2,2,0,0,0, 0,0,1,4,4,4,4,1,0,0, 0,1,1,4,4,4,4,1,1,0, 0,1,0,2,2,2,2,0,1,0, 0,0,0,2,2,2,2,0,0,0, 0,0,0,2,4,4,2,0,0,0, 0,0,0,2,2,2,2,0,0,0, 0,0,1,4,4,4,4,1,0,0, 0,1,1,4,4,4,4,1,1,0, 0,1,0,1,1,1,1,0,1,0, 0,0,0,0,1,1,0,0,0,0];
         const dAuto = [0,0,0,0,0,1,1,0,0,0,0,0, 0,0,0,1,1,1,1,0,0,0, 0,0,0,2,2,3,3,2,2,0, 0,0,2,3,3,4,4,3,3,2, 0,0,4,4,4,4,4,4,4,4, 1,2,3,3,3,3,3,3,3,3,2,1, 1,2,3,3,3,3,3,3,3,3,2,1, 1,2,1,1,1,1,1,1,1,1,2,1, 0,2,1,1,1,1,1,1,1,1,2,0, 0,2,1,1,1,1,1,1,1,1,2,0, 0,2,1,1,1,1,1,1,1,1,2,0, 1,2,2,2,2,2,2,2,2,2,2,1, 1,2,2,2,2,2,2,2,2,2,2,1, 0,0,0,0,0,0,0,0,0,0,0,0];
         
         // V8: True Top-Down Rigid Cattle Arrays
-        // Cow 12x12
+        // Cow 12x16
         const dCow = [
             0,0,0,0,1,1,1,1,0,0,0,0,
-            0,0,1,2,1,1,1,1,2,1,0,0,
-            0,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,2,2,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,2,2,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,2,1,1,1,1,2,1,1,0,
-            0,0,0,2,0,0,0,0,2,0,0,0
+            0,0,0,1,2,2,1,1,1,0,0,0,
+            0,4,4,1,2,2,1,1,1,4,4,0,
+            0,2,2,1,1,1,1,1,1,2,2,0,
+            0,0,0,2,2,1,1,2,2,0,0,0,
+            0,0,0,2,2,1,1,2,2,0,0,0,
+            0,0,0,1,1,1,1,2,2,0,0,0,
+            0,0,0,1,1,1,1,1,1,0,0,0,
+            0,0,0,1,1,2,2,2,1,0,0,0,
+            0,0,0,1,1,2,2,2,1,0,0,0,
+            0,4,4,1,1,1,1,1,1,4,4,0,
+            0,2,2,1,1,1,1,1,1,2,2,0,
+            0,0,1,1,0,1,1,0,1,1,0,0,
+            0,0,0,2,1,1,1,1,2,0,0,0,
+            0,0,0,0,2,2,2,2,0,0,0,0,
+            0,0,0,0,0,3,3,0,0,0,0,0
         ];
-        // Buffalo 16x16 (Dark heavy massive shape)
+        // Buffalo 16x20 (Dark heavy massive shape, grey horns)
         const dBuff = [
-            0,0,0,2,0,0,0,0,0,0,2,0,0,0,0,0,
-            0,0,2,2,1,1,1,1,1,1,2,2,0,0,0,0,
-            0,2,1,1,1,1,1,1,1,1,1,1,2,0,0,0,
-            0,1,1,1,1,2,2,2,2,1,1,1,1,0,0,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,
-            1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
-            1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
-            1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
-            1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
-            1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
-            1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,
-            0,0,0,2,0,0,0,0,0,0,2,0,0,0,0,0
+            0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+            0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+            0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,
+            0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,
+            0,0,5,5,1,1,1,1,1,1,1,1,5,5,0,0,
+            0,0,1,1,1,1,1,2,2,1,1,1,1,1,0,0,
+            0,0,0,0,1,1,1,2,2,1,1,1,0,0,0,0,
+            0,0,0,0,1,1,1,2,2,1,1,1,0,0,0,0,
+            0,0,0,0,1,1,1,2,2,1,1,1,0,0,0,0,
+            0,0,5,5,1,1,1,2,2,1,1,1,5,5,0,0,
+            0,0,1,1,1,1,1,2,2,1,1,1,1,1,0,0,
+            0,0,0,0,1,1,1,2,2,1,1,1,0,0,0,0,
+            0,0,3,3,1,1,1,2,2,1,1,1,3,3,0,0,
+            0,3,3,3,3,1,2,2,2,2,1,3,3,3,3,0,
+            0,3,3,0,3,3,2,2,2,2,3,3,0,3,3,0,
+            0,0,0,0,0,1,2,2,2,2,1,0,0,0,0,0,
+            0,0,0,0,0,0,2,1,1,2,0,0,0,0,0,0,
+            0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+            0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+            0,0,0,0,0,0,4,4,4,4,0,0,0,0,0,0
         ];
 
         // V8: 2-Frame Walk Cycle Humans (Top Down Head+Shoulder blobs) 8x8
@@ -301,9 +423,43 @@
             0,0,0,0,4,4,0,0
         ];
 
+        // V8: 2-Frame Dog Running Cycle (Top Down) 10x12
+        // Frame 1: Left back & Front forward
+        const dDog1 = [
+            0,0,0,1,1,0,0,0,0,0,
+            0,0,0,1,1,0,0,0,0,0,
+            0,0,2,1,1,0,0,0,0,0,
+            0,0,0,1,1,2,0,0,0,0,
+            0,0,1,1,1,1,0,0,0,0,
+            0,0,1,1,1,1,0,0,0,0,
+            0,0,1,1,1,1,0,0,0,0,
+            0,0,2,1,1,0,0,0,0,0,
+            0,0,0,1,1,2,0,0,0,0,
+            0,3,1,1,1,1,3,0,0,0,
+            0,0,1,1,1,1,0,0,0,0,
+            0,0,0,4,4,0,0,0,0,0
+        ];
+        // Frame 2: Right back & Left forward
+        const dDog2 = [
+            0,0,0,1,1,0,0,0,0,0,
+            0,0,0,1,1,0,0,0,0,0,
+            0,0,0,1,1,2,0,0,0,0,
+            0,0,2,1,1,0,0,0,0,0,
+            0,0,1,1,1,1,0,0,0,0,
+            0,0,1,1,1,1,0,0,0,0,
+            0,0,1,1,1,1,0,0,0,0,
+            0,0,0,1,1,2,0,0,0,0,
+            0,0,2,1,1,0,0,0,0,0,
+            0,3,1,1,1,1,3,0,0,0,
+            0,0,1,1,1,1,0,0,0,0,
+            0,0,0,4,4,0,0,0,0,0
+        ];
+
         let dTree = new Array(400).fill(0); for(let y=0;y<20;y++) for(let x=0;x<20;x++){ let ds=Math.sqrt((x-10)**2+(y-10)**2); if(ds<3)dTree[y*20+x]=4;else if(ds<7)dTree[y*20+x]=(Math.random()>0.5?1:2);else if(ds<9&&Math.random()>0.3)dTree[y*20+x]=(Math.random()>0.5?2:3); }
         let dShop = new Array(450).fill(0); for(let y=0;y<15;y++) for(let x=0;x<30;x++){ if(y<5)dShop[y*30+x]=1;else if(y>5&&x>10&&x<20)dShop[y*30+x]=3;else if(y>8&&(x<8||x>22))dShop[y*30+x]=4;else dShop[y*30+x]=2; }
         let dHouse = new Array(600).fill(0); for(let y=0;y<20;y++) for(let x=0;x<30;x++){ if(y<8){if(x>y&&x<30-y)dHouse[y*30+x]=1;}else{if(y>12&&x>12&&x<18)dHouse[y*30+x]=4;else if(y>10&&y<15&&(x===5||x===25))dHouse[y*30+x]=3;else dHouse[y*30+x]=2;} }
+        let dHole = new Array(400).fill(0); for(let y=0;y<20;y++) for(let x=0;x<20;x++){ let ds=Math.sqrt((x-10)**2+(y-10)**2); if(ds<7){dHole[y*20+x]=(ds>4.5)?1:2;} }
+        let dBreak = new Array(600).fill(0); for(let y=0;y<10;y++) for(let x=0;x<60;x++){ if(y<2)dBreak[y*60+x]=4; else if(y>7)dBreak[y*60+x]=3; else dBreak[y*60+x]=((Math.floor(x/10))%2===0?1:2); }
 
         function createBoxySprite(w,h,cb,cw,ct) {
             let data = new Array(w*h).fill(0);
@@ -314,27 +470,102 @@
             }
             return gen(w,h,data, {1:ct, 2:cb, 3:cw});
         }
+        function createBMWMSeriesSprite(w,h) {
+            let data = new Array(w*h).fill(0);
+            for(let y=0;y<h;y++) for(let x=0;x<w;x++) {
+                let edge = (x===0 || x===w-1 || y===0 || y===h-1);
+                let tire = ((y>3&&y<9)||(y>h-10&&y<h-4)) && (x<3||x>w-4);
+                let win = (y>10&&y<15&&x>2&&x<w-3) || (y>h-18&&y<h-12&&x>2&&x<w-3) || (y>15&&y<h-18&&(x===3||x===w-4));
+                if(tire) { data[y*w+x]=1; } else if(edge) { data[y*w+x]=2; } else if(win) { data[y*w+x]=3; } else {
+                    data[y*w+x]=4;
+                    if(y===1||y===2) { if((x>w/2-4 && x<w/2-1)||(x>w/2 && x<w/2+3)) data[y*w+x]=1; } // kidney grille
+                    if(y===2) { if(x===2||x===3||x===w-3||x===w-4) data[y*w+x]=5; } // headlights
+                    if(y===h-2) { if((x>1 && x<6)||(x>w-7 && x<w-2)) data[y*w+x]=6; } // taillights
+                    if(!win && !edge && !tire && y>2 && y<h-2) {
+                        if(x===w/2+1) data[y*w+x]=7; if(x===w/2+2) data[y*w+x]=8; if(x===w/2+3) data[y*w+x]=6; // M stripe
+                    }
+                }
+            }
+            return gen(w,h,data, {1:'#111', 2:'#777', 3:'#1a1a1a', 4:'#ffffff', 5:'#ccffff', 6:'#ff0000', 7:'#00aaff', 8:'#0000aa'});
+        }
+
+        function createGopuramSprite(w, h) {
+            let data = new Array(w*h).fill(0);
+            for(let y=0; y<h; y++) {
+                let tier = Math.floor(y / (h / 5));
+                let tierWidth = w - (4 - tier) * (w / 7);
+                let startX = Math.floor((w - tierWidth) / 2);
+                let endX = startX + Math.floor(tierWidth);
+                for(let x=0; x<w; x++) {
+                    if (x >= startX && x < endX) {
+                        let isBorder = (x === startX || x === endX - 1 || y % Math.floor(h/5) === 0);
+                        if (isBorder) data[y*w+x] = 1;
+                        else data[y*w+x] = ((x + y) % 3) + 2;
+                    }
+                }
+            }
+            for (let y = 0; y < 4; y++) {
+                let mid = Math.floor(w / 2);
+                for(let x = mid - 2; x <= mid + 2; x++) data[y*w+x] = 1;
+            }
+            return gen(w, h, data, { 1: '#ffaa00', 2: '#ff3366', 3: '#00ccff', 4: '#33cc33', 5: '#ffffff' });
+        }
+        function createCoconutTreeSprite(w, h) {
+            let data = new Array(w*h).fill(0);
+            let midX = Math.floor(w / 2), midY = Math.floor(h / 2);
+            for (let y = h - 1; y >= midY; y--) {
+                let shift = Math.floor(Math.sin((h - 1 - y) / 3) * 2);
+                let tx = midX + shift;
+                for (let x = tx - 1; x <= tx + 1; x++) { if (x >= 0 && x < w) data[y*w+x] = 4; }
+            }
+            let cx = midX + Math.floor(Math.sin((h - 1 - midY) / 3) * 2), cy = midY;
+            for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+                let dx = Math.cos(angle), dy = Math.sin(angle);
+                for (let r = 0; r < Math.floor(w / 2.2); r++) {
+                    let lx = Math.floor(cx + dx * r), ly = Math.floor(cy + dy * r);
+                    if (lx >= 0 && lx < w && ly >= 0 && ly < h) data[ly*w+lx] = (r < 5) ? 1 : (r % 2 === 0 ? 2 : 3);
+                }
+            }
+            for (let ox = -1; ox <= 1; ox++) {
+                for (let oy = -1; oy <= 1; oy++) {
+                    if (Math.abs(ox) + Math.abs(oy) === 1) data[(cy + oy) * w + (cx + ox)] = 5;
+                }
+            }
+            return gen(w, h, data, { 1: '#005511', 2: '#00aa22', 3: '#33ff55', 4: '#553311', 5: '#ccaa33' });
+        }
 
         const SPRITES = {
             hum1: gen(8, 8, dHum1, PALS.human), hum2: gen(8, 8, dHum2, PALS.human),
             tree: gen(20, 20, dTree, PALS.tree), shop: gen(30, 15, dShop, PALS.shop), house: gen(30, 20, dHouse, PALS.house),
-            cow: gen(12, 12, dCow, PALS.cow), buffalo: gen(16, 16, dBuff, PALS.buffalo),
-            bike: gen(10,16, dBike, PALS.bike), auto: gen(12,14, dAuto, PALS.auto),
-            bwm: createBoxySprite(20, 36, '#ffffff', '#111', '#222'), bus: createBoxySprite(30, 60, '#00ff66', '#222', '#111')
+            cow: gen(12, 16, dCow, PALS.cow), buffalo: gen(16, 20, dBuff, PALS.buffalo),
+            bike: gen(10,16, dBike, PALS.bike),
+            bikeBlue: gen(10,16, dBike, {1:'#0055ff', 2:'#00aaff', 3:'#fff', 4:'#111'}),
+            bikeBlack: gen(10,16, dBike, {1:'#222', 2:'#444', 3:'#fff', 4:'#000'}),
+            bikeGreen: gen(10,16, dBike, {1:'#00ff00', 2:'#55ff55', 3:'#fff', 4:'#111'}),
+            bmwBike: gen(10,16, dBike, {1:'#ffffff', 2:'#0033aa', 3:'#ff0022', 4:'#111'}),
+            auto: gen(12,14, dAuto, PALS.auto),
+            bwm: createBoxySprite(20, 36, '#ffffff', '#111', '#222'),
+            bmwMSeries: createBMWMSeriesSprite(24, 40),
+            bus: createBoxySprite(30, 60, '#00ff66', '#222', '#111'),
+            hole: gen(20, 20, dHole, {1:'#ff0033', 2:'#ffee00'}),
+            breaker: gen(60, 10, dBreak, {1:'#ffee00', 2:'#000000', 3:'#0a0a0a', 4:'#ffffee'}),
+            dog1: gen(10, 12, dDog1, PALS.dog), dog2: gen(10, 12, dDog2, PALS.dog),
+            gopuram: createGopuramSprite(30, 45),
+            coconut: createCoconutTreeSprite(30, 30)
         };
 
-        
         const ls = { get: (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} } };
 
         let GLOBAL_SCORE = 999999;
         let MAP_UNLOCKS = 99;
         let UNLOCKED_VEHICLES = ['hjonda', 'bullett', 'ninja', 'bmw1000rr', 'hindo', 'bwm'];
+        let HAS_UNLOCKED_THIS_SESSION = false;
 
         const VEHICLES = [
-            { id: 'hjonda', tier: 'BIKE', name: 'HEROIC SPLENDID', cost: 0, s: 10, a: 0.05, sp: SPRITES.bike, w:10, h:16, eSound: null, fuelRate: 0.5 },
-            { id: 'bullett', tier: 'BIKE', name: 'BALLISTIC RANGER', cost: 500, s: 14, a: 0.08, sp: SPRITES.bike, w:10, h:18, eSound: 'thump', fuelRate: 1.5 },
-            { id: 'ninja', tier: 'BIKE', name: 'SHINOBI ZX', cost: 3000, s: 28, a: 0.40, sp: SPRITES.bike, w:10, h:16, eSound: null, fuelRate: 4.5 },
-            { id: 'bmw1000rr', tier: 'SUPERBIKE', name: 'BVM X1000R', cost: 8000, s: 30, a: 0.28, sp: SPRITES.bwm, w:10, h:16, eSound: null, fuelRate: 4.0 }
+            { id: 'hjonda', tier: 'BIKE', name: 'HEROIC SPLENDID', cost: 0, s: 10, a: 0.05, sp: SPRITES.bikeBlue, w:10, h:16, eSound: null, fuelRate: 0.5 },
+            { id: 'bullett', tier: 'BIKE', name: 'BALLISTIC RANGER', cost: 500, s: 14, a: 0.08, sp: SPRITES.bikeBlack, w:10, h:18, eSound: 'royal-enfield', fuelRate: 1.5 },
+            { id: 'ninja', tier: 'BIKE', name: 'SHINOBI ZX', cost: 3000, s: 28, a: 0.40, sp: SPRITES.bikeGreen, w:10, h:16, eSound: null, fuelRate: 4.5 },
+            { id: 'bmw1000rr', tier: 'SUPERBIKE', name: 'BVM X1000R', cost: 8000, s: 30, a: 0.28, sp: SPRITES.bmwBike, w:10, h:16, eSound: null, fuelRate: 4.0 }
         ];
 
         let currV = ls.get('v8_selected_vehicle') ? parseInt(ls.get('v8_selected_vehicle')) : 0;
@@ -370,46 +601,6 @@
                     if(e.key==='e' || e.key==='E') { this.ind.r = !this.ind.r; this.ind.l = false; this.updateUIIndicators(); }
                 });
                 window.addEventListener('keyup', e => { this.keys[e.key] = false; });
-
-                this.lastTap = { l: 0, r: 0 };
-                this.activeTouches = { left: false, right: false };
-
-                const updateTouchState = (e) => {
-                    this.activeTouches = { left: false, right: false };
-                    for (let i = 0; i < e.touches.length; i++) {
-                        if (e.touches[i].clientX < window.innerWidth / 2) this.activeTouches.left = true;
-                        else this.activeTouches.right = true;
-                    }
-                    this.keys.ArrowUp = this.activeTouches.left || this.activeTouches.right;
-                    this.keys.ArrowDown = !(this.activeTouches.left || this.activeTouches.right);
-                    this.keys.ArrowLeft = this.activeTouches.left && !this.activeTouches.right;
-                    this.keys.ArrowRight = this.activeTouches.right && !this.activeTouches.left;
-                };
-
-                window.addEventListener('touchstart', e => {
-                    if (!this.isPlaying) return;
-                    for (let i = 0; i < e.changedTouches.length; i++) {
-                        const touch = e.changedTouches[i];
-                        const now = performance.now();
-                        if (touch.clientX < window.innerWidth / 2) {
-                            if (now - this.lastTap.l < 300) {
-                                this.ind.l = !this.ind.l; this.ind.r = false; this.updateUIIndicators();
-                                this.lastTap.l = 0;
-                            } else { this.lastTap.l = now; }
-                        } else {
-                            if (now - this.lastTap.r < 300) {
-                                this.ind.r = !this.ind.r; this.ind.l = false; this.updateUIIndicators();
-                                this.lastTap.r = 0;
-                            } else { this.lastTap.r = now; }
-                        }
-                    }
-                    updateTouchState(e);
-                }, { passive: true });
-
-                window.addEventListener('touchmove', e => { if (this.isPlaying) updateTouchState(e); }, { passive: true });
-                window.addEventListener('touchend', e => { if (this.isPlaying) updateTouchState(e); }, { passive: true });
-                window.addEventListener('touchcancel', e => { if (this.isPlaying) updateTouchState(e); }, { passive: true });
-
                 this.isPlaying = false; this.boundLoop = this.loop.bind(this);
             }
 
@@ -743,6 +934,7 @@
             const g = new GameEngine();
             const gui = { garage: document.getElementById('garage-screen'), ov: document.getElementById('game-over-screen') };
 
+            null
             function rUI() {
                 document.getElementById('global-score-ui').innerText = GLOBAL_SCORE;
                 const vl = document.getElementById('vehicle-list'); vl.innerHTML='';
