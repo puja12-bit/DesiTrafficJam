@@ -625,7 +625,7 @@
             startGame(vIdx, mapId) {
                 if (typeof AudioSys !== 'undefined') AudioSys.init();
                 this.vConf = VEHICLES[vIdx]; this.mapId = mapId;
-                this.isPlaying = true; this.score = 0; this.fuel = 100;
+                this.isPlaying = true; this.score = 0; this.fuel = 100; this.stats = {noSignalTurn:0, suddenBrake:0, unnecessaryStop:0, nearMiss:0};
                 this.p = { x: 300, y: 650, speed: 0, angle: 0, logY: 0, w: this.vConf.w, h: this.vConf.h };
                 this.p.lane = this.resolveLane(this.p.x);
                 this.em = []; this.spawnTimer = 0;
