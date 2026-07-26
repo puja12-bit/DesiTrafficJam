@@ -1,0 +1,9 @@
+node_modules/
+*.bat
+temp*.js
+fix*.js
+fix*.py
+patch*.py
+old*.html
+live*.html
+*.png

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DesiDrive</string>
+    <string name="title_activity_main">DesiDrive</string>
+    <string name="package_name">com.puja12bit.desidrive</string>
+    <string name="custom_url_scheme">com.puja12bit.desidrive</string>
+</resources>

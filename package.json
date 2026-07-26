@@ -1,0 +1,29 @@
+{
+  "name": "sparse-parsec",
+  "version": "1.0.0",
+  "description": "",
+  "main": "temp.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/puja12-bit/sparse-parsec.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/puja12-bit/sparse-parsec/issues"
+  },
+  "homepage": "https://github.com/puja12-bit/sparse-parsec#readme",
+  "dependencies": {
+    "@capacitor/core": "^8.4.2",
+    "puppeteer": "^25.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2"
+  }
+}
